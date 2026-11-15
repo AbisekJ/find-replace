@@ -64,13 +64,37 @@ int main(int argc, char *argv[])
         file_buffer[file_size] = '\0';
         printf("[STATUS]: Successfully loaded file content into single buffer and null-terminated\n");
 
-        // Clean up file handle (keeping buffer alive for Stage 2)
+        // Close file handle (keeping buffer alive)
         fclose(file_pointer);
         printf("[STATUS]: Closed file handle safely\n");
 
-        // Temporary cleanup to test Stage 1 independently
+        size_t target_length = strlen(target_word);
+        size_t replacement_length = strlen(replacement_word);
+
+        if (target_length == 0)
+        {
+                fprintf(stderr, "[STATUS]: Error: Target word cannot be empty\n");
+                free(file_buffer);
+                return 1;
+        }
+
+        int occurrence_count = 0;
+        char *current_pointer = file_buffer;
+
+        printf("[STATUS]: Scanning buffer for occurrences of target word: '%s'\n", target_word);
+        while ((current_pointer = strstr(current_pointer, target_word)) != NULL)
+        {
+                occurrence_count++;
+                // Advance pointer past the current match to avoid infinite loops
+                current_pointer += target_length;
+        }
+
+        printf("[STATUS]: Scan complete. Found %d occurrence(s) of target word\n", occurrence_count);
+        printf("[STATUS]: Target length: %zu, Replacement length: %zu\n", target_length, replacement_length);
+
+        // Cleanup for Stage 2 test
         free(file_buffer);
-        printf("[STATUS]: Stage 1 memory freed successfully\n");
+        printf("[STATUS]: Stage 2 memory freed successfully\n");
 
         return 0;
-}
+    }
