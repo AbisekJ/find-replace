@@ -5,7 +5,6 @@
 
 int main(int argc, char *argv[])
 {
-        // Validate command-line arguments
         if (argc != 4)
         {
                 fprintf(stderr, "Usage: %s <file_name> <target_word> <replacement_word>\n", argv[0]);
@@ -68,6 +67,7 @@ int main(int argc, char *argv[])
         fclose(file_pointer);
         printf("[STATUS]: Closed file handle safely\n");
 
+        // Scan and count target occurrences
         size_t target_length = strlen(target_word);
         size_t replacement_length = strlen(replacement_word);
 
@@ -85,16 +85,81 @@ int main(int argc, char *argv[])
         while ((current_pointer = strstr(current_pointer, target_word)) != NULL)
         {
                 occurrence_count++;
-                // Advance pointer past the current match to avoid infinite loops
                 current_pointer += target_length;
         }
 
-        printf("[STATUS]: Scan complete. Found %d occurrence(s) of target word\n", occurrence_count);
-        printf("[STATUS]: Target length: %zu, Replacement length: %zu\n", target_length, replacement_length);
+        printf("[STATUS]: Scan complete. Found %d occurrence(s)\n", occurrence_count);
 
-        // Cleanup for Stage 2 test
+        long length_difference = (long)replacement_length - (long)target_length;
+        long new_file_size = file_size + (occurrence_count * length_difference);
+
+        printf("[STATUS]: Calculating new file size: %ld + (%d * %ld) = %ld bytes\n", 
+               file_size, occurrence_count, length_difference, new_file_size);
+
+        // Reallocate the single buffer to accommodate the new size (+1 for null terminator)
+        char *resized_buffer = (char *)realloc(file_buffer, new_file_size + 1);
+        if (resized_buffer == NULL)
+        {
+                fprintf(stderr, "[STATUS]: Memory reallocation failed\n");
+                free(file_buffer);
+                return 1;
+        }
+        file_buffer = resized_buffer;
+        printf("[STATUS]: Single buffer successfully reallocated to %ld bytes\n", new_file_size + 1);
+
+        if (occurrence_count > 0)
+        {
+                // Store match indices to process replacements from right to left, preventing pointer corruption of trailing unshifted data.
+                size_t *match_indices = (size_t *)malloc(occurrence_count * sizeof(size_t));
+                if (match_indices == NULL)
+                {
+                        fprintf(stderr, "[STATUS]: Memory allocation failed for match indices\n");
+                        free(file_buffer);
+                        return 1;
+                }
+
+                int index_counter = 0;
+                current_pointer = file_buffer;
+                while ((current_pointer = strstr(current_pointer, target_word)) != NULL)
+                {
+                        match_indices[index_counter++] = (size_t)(current_pointer - file_buffer);
+                        current_pointer += target_length;
+                }
+
+                printf("[STATUS]: Performing right-to-left in-place memory shifting and replacement\n");
+
+                // Track the current logical end of the buffer during right-to-left processing
+                size_t current_tail_end = file_size;
+
+                for (int i = occurrence_count - 1; i >= 0; i--)
+                {
+                        size_t current_index = match_indices[i];
+                        char *target_location = file_buffer + current_index;
+
+                        char *source_address = target_location + target_length;
+                        char *destination_address = target_location + replacement_length;
+                        size_t bytes_to_move = current_tail_end - (current_index + target_length);
+
+                        // Shift trailing bytes in-place using memmove
+                        memmove(destination_address, source_address, bytes_to_move);
+
+                        // Copy the replacement word into place
+                        memcpy(target_location, replacement_word, replacement_length);
+
+                        // Update tail end for the next iteration
+                        current_tail_end += length_difference;
+                }
+
+                free(match_indices);
+        }
+
+        // Ensure proper null termination at the new calculated size
+        file_buffer[new_file_size] = '\0';
+        printf("[STATUS]: In-place replacement completed successfully\n");
+
+        // Cleanup for Stage 3 test
         free(file_buffer);
-        printf("[STATUS]: Stage 2 memory freed successfully\n");
+        printf("[STATUS]: Stage 3 memory freed successfully\n");
 
         return 0;
-    }
+}
