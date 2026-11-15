@@ -11,12 +11,14 @@ static void print_help(const char *program_name)
 {
         print_banner();
         printf("Usage:\n");
-        printf("  %s <file_name> <target_word> <replacement_word>\n", program_name);
+        printf("  %s -f <file_name> -t <target_word> -r <replacement_word>\n", program_name);
+        printf("  (Arguments can be provided in any order using flags)\n");
         printf("  %s --help\n", program_name);
         printf("  %s --version\n", program_name);
-        printf("\nDescription:\n");
-        printf("  Performs resource-optimized in-place word replacement using a single\n");
-        printf("  heap buffer and memmove shifting, avoiding temporary files.\n");
+        printf("\nFlags:\n");
+        printf("  -f, --file        Path to the target file\n");
+        printf("  -t, --target      Word to search for\n");
+        printf("  -r, --replace     Word to replace with\n");
 }
 
 static void print_version(void)
@@ -43,17 +45,40 @@ int main(int argc, char *argv[])
         // Print banner on execution start
         print_banner();
 
-        if (argc != EXPECTED_ARG_COUNT)
+        char *file_name = NULL;
+        char *target_word = NULL;
+        char *replacement_word = NULL;
+
+        // Parse command-line arguments order-independently using flags
+        for (int i = 1; i < argc; i++)
         {
-                fprintf(stderr, "[STATUS]: Error: Invalid argument count.\n");
-                fprintf(stderr, "Usage: %s <file_name> <target_word> <replacement_word>\n", argv[0]);
+                if ((strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--file") == 0) && (i + 1 < argc))
+                {
+                        file_name = argv[++i];
+                }
+                else if ((strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--target") == 0) && (i + 1 < argc))
+                {
+                        target_word = argv[++i];
+                }
+                else if ((strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--replace") == 0) && (i + 1 < argc))
+                {
+                        replacement_word = argv[++i];
+                }
+        }
+
+        // Validate that all required parameters were successfully classified
+        if (file_name == NULL || target_word == NULL || replacement_word == NULL)
+        {
+                fprintf(stderr, "[STATUS]: Error: Missing or invalid arguments.\n");
+                fprintf(stderr, "Usage: %s -f <file_name> -t <target_word> -r <replacement_word>\n", argv[0]);
                 fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
                 return ERROR_STATUS;
         }
 
-        char *file_name = argv[1];
-        char *target_word = argv[2];
-        char *replacement_word = argv[3];
+        printf("[STATUS]: Arguments successfully classified (Order-Independent):\n");
+        printf("[STATUS]:   File       -> %s\n", file_name);
+        printf("[STATUS]:   Target     -> %s\n", target_word);
+        printf("[STATUS]:   Replacement-> %s\n", replacement_word);
 
         int result = find_replace(file_name, target_word, replacement_word);
         return result;
