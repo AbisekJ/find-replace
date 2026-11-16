@@ -14,7 +14,7 @@
 
 
 #define PROGRAM_NAME                    "Resource-Optimized In-Memory C Word Replacer"
-#define PROGRAM_VERSION                 "1"
+#define PROGRAM_VERSION                 "2"
 
 
 int find_replace(const char *file_name, const char *target_word, const char *replacement_word);
