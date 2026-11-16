@@ -69,16 +69,16 @@ int main(int argc, char *argv[])
         // Validate that all required parameters were successfully classified
         if (file_name == NULL || target_word == NULL || replacement_word == NULL)
         {
-                fprintf(stderr, "[STATUS]: Error: Missing or invalid arguments.\n");
+                fprintf(stderr, "STATUS : Error: Missing or invalid arguments.\n");
                 fprintf(stderr, "Usage: %s -f <file_name> -t <target_word> -r <replacement_word>\n", argv[0]);
                 fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
                 return ERROR_STATUS;
         }
 
-        printf("[STATUS]: Arguments successfully classified (Order-Independent):\n");
-        printf("[STATUS]:   File       -> %s\n", file_name);
-        printf("[STATUS]:   Target     -> %s\n", target_word);
-        printf("[STATUS]:   Replacement-> %s\n", replacement_word);
+        printf("STATUS : Arguments successfully classified (Order-Independent):\n");
+        printf("STATUS :   File       -> %s\n", file_name);
+        printf("STATUS :   Target     -> %s\n", target_word);
+        printf("STATUS :   Replacement-> %s\n", replacement_word);
 
         int result = find_replace(file_name, target_word, replacement_word);
         return result;
