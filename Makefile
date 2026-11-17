@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O2
 TARGET = find_replace
 
-SRC = main.c find_replace.c
+SRC = main.c find_replace_min.c
 OBJ = $(SRC:.c=.o)
 
 all: $(TARGET)
