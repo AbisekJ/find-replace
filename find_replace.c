@@ -197,8 +197,14 @@ int find_replace(const char *file_name, const char *target_word, const char *rep
 
         // Reallocation & In-Place Memory Shifting
         long length_difference = (long)replacement_length - (long)target_length;
-        long new_file_size = file_size + (confirmed_occurrences * length_difference);
-
+        long new_file_size;
+        if(replacement_length >= target_length){
+        	new_file_size = file_size + (confirmed_occurrences * length_difference);
+	}
+	else{
+		new_file_size = file_size;
+	}
+		
         printf("STATUS : Calculating new file size: %ld + (%d * %ld) = %ld bytes\n", file_size, confirmed_occurrences, length_difference, new_file_size);
 
         // Reallocate the single buffer to accommodate the new size (+1 for null terminator)
