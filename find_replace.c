@@ -1,6 +1,7 @@
 #include "find_replace.h"
 #include "utility.h"
 
+
 // Validate core function arguments
 static int validate_arguments(const char *file_name, const char *target_word, const char *replacement_word)
 {
@@ -37,6 +38,37 @@ static int check_file_accessibility(const char *file_name)
         return SUCCESS_STATUS;
 }
 
+// Check if a character is part of a word 
+static int is_word_character(char character)
+{
+        return isalnum((unsigned char)character) || character == '_';
+}
+
+// Check if a match location is a partial match inside a larger word
+static int check_is_partial_match(const char *buffer_start, const char *match_location, size_t target_length)
+{
+        int has_left_boundary = 0;
+        int has_right_boundary = 0;
+
+        // Check character before the match
+        if (match_location > buffer_start)
+        {
+                if (is_word_character(*(match_location - 1)))
+                {
+                        has_left_boundary = 1;
+                }
+        }
+
+        // Check character after the match
+        char next_character = *(match_location + target_length);
+        if (next_character != '\0' && is_word_character(next_character))
+        {
+                has_right_boundary = 1;
+        }
+
+        return (has_left_boundary || has_right_boundary);
+}
+
 // Open file, verify size against target word length, allocate buffer, and read contents
 static char *load_and_validate_file(const char *file_name, const char *target_word, size_t *out_size)
 {
@@ -57,14 +89,13 @@ static char *load_and_validate_file(const char *file_name, const char *target_wo
         }
 
         long file_size = ftell(file_pointer);
-        if (file_size < 0 || (uintmax_t)file_size > (uintmax_t)SIZE_MAX - 1)
+        if (file_size < 0 || (size_t)file_size > SIZE_MAX - 1)
         {
                 fprintf(stderr, "ERROR : Invalid file size or file too large\n");
                 fclose(file_pointer);
                 return NULL;
         }
 
-        // Handle explicitly empty files
         if (file_size == 0)
         {
                 printf("STATUS : File is empty (0 bytes). No matches possible.\n");
@@ -146,7 +177,7 @@ static int write_and_validate_file(const char *file_name, const char *file_buffe
         return SUCCESS_STATUS;
 }
 
-// Perform a single find and replace operation on the in-memory buffer
+// Perform a single find and replace operation 
 static char *perform_single_replacement(char *file_buffer, size_t current_size, const char *target_word, const char *replacement_word, size_t *out_new_size)
 {
         // Check if target and replacement words are identical
@@ -175,148 +206,167 @@ static char *perform_single_replacement(char *file_buffer, size_t current_size, 
                 return NULL;
         }
 
-        size_t *occurrence_indices = NULL;
+        size_t *match_indices = NULL;
 
         if (max_occurrences > 0)
         {
-                occurrence_indices = malloc(max_occurrences * sizeof(size_t));
+                match_indices = malloc(max_occurrences * sizeof(size_t));
 
-                if (occurrence_indices == NULL)
+                if (match_indices == NULL)
                 {
                         fprintf(stderr, "ERROR : Index allocation failed\n");
                         return NULL;
                 }
         }
 
-        printf("STATUS : Finding occurrences and storing indices\n");
+        printf("STATUS : Finding occurrences and evaluating boundaries\n");
 
-        size_t occurrence_count = 0;
-        char *search_pointer = file_buffer;
-        char *match_pointer;
+        size_t total_occurrences = 0;
+        char *current_pointer = file_buffer;
 
-        while ((match_pointer = strstr(search_pointer, target_word)) != NULL)
+        while ((current_pointer = strstr(current_pointer, target_word)) != NULL)
         {
-                occurrence_indices[occurrence_count++] = (size_t)(match_pointer - file_buffer);
-                search_pointer = match_pointer + target_length;
+                total_occurrences++;
+                current_pointer += target_length;
         }
 
-        printf("STATUS : Total occurrences found: %zu\n", occurrence_count);
-
-        if (occurrence_count == 0)
+        if (total_occurrences == 0)
         {
                 printf("STATUS : No occurrences found for target '%s'\n", target_word);
-                free(occurrence_indices);
+                free(match_indices);
                 *out_new_size = current_size;
                 return file_buffer;
         }
 
-        size_t new_file_size;
+        size_t confirmed_occurrences = 0;
+        current_pointer = file_buffer;
 
-        if (replacement_length > target_length)
+        while ((current_pointer = strstr(current_pointer, target_word)) != NULL)
         {
-                size_t difference = replacement_length - target_length;
+                size_t match_offset = (size_t)(current_pointer - file_buffer);
+                int is_partial = check_is_partial_match(file_buffer, current_pointer, target_length);
 
-                if (occurrence_count > (SIZE_MAX - 1 - current_size) / difference)
+                if (is_partial)
                 {
-                        fprintf(stderr, "ERROR : File size overflow\n");
-                        free(occurrence_indices);
-                        return NULL;
+                        const char *word_start = current_pointer;
+                        while (word_start > file_buffer && is_word_character(*(word_start - 1)))
+                        {
+                                word_start--;
+                        }
+
+                        const char *word_end = current_pointer + target_length;
+                        while (*word_end != '\0' && is_word_character(*word_end))
+                        {
+                                word_end++;
+                        }
+
+                        size_t extracted_word_len = (size_t)(word_end - word_start);
+                        char embedded_word_buffer[256];
+                        
+                        size_t copy_length = (extracted_word_len < sizeof(embedded_word_buffer) - 1) ? extracted_word_len : sizeof(embedded_word_buffer) - 1;
+
+                        memcpy(embedded_word_buffer, word_start, copy_length);
+                        embedded_word_buffer[copy_length] = '\0';
+
+                        printf("\n------------------------------------------------------------\n");
+                        printf("STATUS : Partial match detected!\n");
+                        printf("         Target '%s' is embedded inside the word: '%s'\n", target_word, embedded_word_buffer);
+                        printf("PROMPT : Do you want to replace this occurrence? [y/n]: ");
+                        
+                        char *user_response = read_dynamic_input(NULL);
+                        int accept_partial = 0;
+                        if (user_response != NULL)
+                        {
+                                if (user_response[0] == 'y' || user_response[0] == 'Y')
+                                {
+                                        accept_partial = 1;
+                                }
+                                free(user_response);
+                        }
+
+                        if (accept_partial)
+                        {
+                                printf("STATUS : User chose to REPLACE partial match.\n");
+                                match_indices[confirmed_occurrences++] = match_offset;
+                        }
+                        else
+                        {
+                                printf("STATUS : User chose to SKIP partial match.\n");
+                        }
+                        printf("------------------------------------------------------------\n");
+                }
+                else
+                {
+                        match_indices[confirmed_occurrences++] = match_offset;
                 }
 
-                new_file_size = current_size + (occurrence_count * difference);
+                current_pointer += target_length;
+        }
+
+        if (confirmed_occurrences == 0)
+        {
+                printf("STATUS : No replacements confirmed after partial match checks.\n");
+                free(match_indices);
+                *out_new_size = current_size;
+                return file_buffer;
+        }
+
+        long length_difference = (long)replacement_length - (long)target_length;
+        long new_file_size;
+
+        if (replacement_length >= target_length)
+        {
+                new_file_size = (long)current_size + (confirmed_occurrences * length_difference);
         }
         else
         {
-                size_t difference = target_length - replacement_length;
-
-                if (difference != 0 && occurrence_count > current_size / difference)
-                {
-                        fprintf(stderr, "ERROR : Invalid resulting size\n");
-                        free(occurrence_indices);
-                        return NULL;
-                }
-
-                new_file_size = current_size - (occurrence_count * difference);
+                long total_reduction = confirmed_occurrences * (target_length - replacement_length);
+                new_file_size = (long)current_size - total_reduction;
         }
 
-        printf("STATUS : Current size: %zu bytes\n", current_size);
-        printf("STATUS : Projected size: %zu bytes\n", new_file_size);
-
-        if (replacement_length > target_length)
+        if (new_file_size < 0 || (uintmax_t)new_file_size > (uintmax_t)SIZE_MAX - 1)
         {
-                printf("STATUS : Expanding existing buffer\n");
-
-                char *resized_buffer = realloc(file_buffer, new_file_size + 1);
-                if (resized_buffer == NULL)
-                {
-                        fprintf(stderr, "ERROR : Buffer expansion failed\n");
-                        free(occurrence_indices);
-                        return NULL;
-                }
-
-                file_buffer = resized_buffer;
-        }
-        else
-        {
-                printf("STATUS : Existing buffer capacity is sufficient\n");
-        }
-
-        size_t read_pointer = current_size;
-        size_t write_pointer;
-
-        if (replacement_length < target_length)
-        {
-                write_pointer = current_size;
-        }
-        else
-        {
-                write_pointer = new_file_size;
-        }
-
-        printf("STATUS : Starting reverse block-level replacement\n");
-
-        for (size_t i = occurrence_count; i > 0; i--)
-        {
-                size_t match_index = occurrence_indices[i - 1];
-                size_t block_start = match_index + target_length;
-                size_t block_length = read_pointer - block_start;
-
-                write_pointer -= block_length;
-                memmove(file_buffer + write_pointer, file_buffer + block_start, block_length);
-
-                write_pointer -= replacement_length;
-                memcpy(file_buffer + write_pointer, replacement_word, replacement_length);
-
-                read_pointer = match_index;
-        }
-
-        size_t remaining_length = read_pointer;
-        write_pointer -= remaining_length;
-        memmove(file_buffer + write_pointer, file_buffer, remaining_length);
-
-        size_t expected_offset = 0;
-        if (replacement_length < target_length)
-        {
-                expected_offset = current_size - new_file_size;
-        }
-
-        if (write_pointer != expected_offset)
-        {
-                fprintf(stderr, "ERROR : Pointer calculation error\n");
-                free(occurrence_indices);
+                fprintf(stderr, "ERROR : Resulting file size overflow\n");
+                free(match_indices);
                 return NULL;
         }
 
-        if (write_pointer > 0)
+        printf("STATUS : Expanding or adjusting buffer for %zu confirmed replacements\n", confirmed_occurrences);
+
+        char *resized_buffer = realloc(file_buffer, (size_t)new_file_size + 1);
+        if (resized_buffer == NULL)
         {
-                memmove(file_buffer, file_buffer + write_pointer, new_file_size);
+                fprintf(stderr, "ERROR : Buffer reallocation failed\n");
+                free(match_indices);
+                return NULL;
+        }
+        file_buffer = resized_buffer;
+
+        printf("STATUS : Starting reverse block-level replacement\n");
+
+        size_t current_tail_end = current_size;
+
+        for (int i = (int)confirmed_occurrences - 1; i >= 0; i--)
+        {
+                size_t current_index = match_indices[i];
+                char *target_location = file_buffer + current_index;
+
+                char *source_address = target_location + target_length;
+                char *destination_address = target_location + replacement_length;
+                size_t bytes_to_move = current_tail_end - (current_index + target_length);
+
+                memmove(destination_address, source_address, bytes_to_move);
+                memcpy(target_location, replacement_word, replacement_length);
+
+                current_tail_end += length_difference;
         }
 
-        file_buffer[new_file_size] = '\0';
-        free(occurrence_indices);
+        free(match_indices);
 
+        file_buffer[new_file_size] = '\0';
         printf("STATUS : Reverse block replacement iteration completed successfully\n");
-        *out_new_size = new_file_size;
+
+        *out_new_size = (size_t)new_file_size;
         return file_buffer;
 }
 
@@ -357,8 +407,8 @@ int find_replace(const char *file_name, const char *target_word, const char *rep
         {
                 return ERROR_STATUS;
         }
-        
-	// Multiple find and replace interactive loop using dynamic input
+
+        // Multiple find and replace interactive loop using dynamic input
         while (1)
         {
                 printf("STATUS : Do you want to perform another find and replace on this file? (y/n): ");
@@ -368,9 +418,10 @@ int find_replace(const char *file_name, const char *target_word, const char *rep
                         break;
                 }
 
-                // Validate choice input
+                int continue_loop = 0;
                 if (strcmp(choice, "y") == 0 || strcmp(choice, "Y") == 0)
                 {
+                        continue_loop = 1;
                         free(choice);
                 }
                 else if (strcmp(choice, "n") == 0 || strcmp(choice, "N") == 0)
@@ -383,6 +434,11 @@ int find_replace(const char *file_name, const char *target_word, const char *rep
                         fprintf(stderr, "ERROR : Invalid input. Please enter 'y' for yes or 'n' for no.\n");
                         free(choice);
                         continue;
+                }
+
+                if (!continue_loop)
+                {
+                        break;
                 }
 
                 printf("STATUS : Enter new target word:\n");
