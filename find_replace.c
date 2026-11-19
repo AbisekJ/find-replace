@@ -261,17 +261,23 @@ static char *perform_single_replacement(char *file_buffer, size_t current_size, 
                         }
 
                         size_t extracted_word_len = (size_t)(word_end - word_start);
-                        char embedded_word_buffer[256];
-                        
-                        size_t copy_length = (extracted_word_len < sizeof(embedded_word_buffer) - 1) ? extracted_word_len : sizeof(embedded_word_buffer) - 1;
+                        char *embedded_word_buffer = malloc(extracted_word_len + 1);
+                        if (embedded_word_buffer == NULL)
+                        {
+                                perror("ERROR : Memory allocation failed for embedded word");
+                                free(match_indices);
+                                return NULL;
+                        }
 
-                        memcpy(embedded_word_buffer, word_start, copy_length);
-                        embedded_word_buffer[copy_length] = '\0';
+                        memcpy(embedded_word_buffer, word_start, extracted_word_len);
+                        embedded_word_buffer[extracted_word_len] = '\0';
 
                         printf("\n------------------------------------------------------------\n");
                         printf("STATUS : Partial match detected!\n");
                         printf("         Target '%s' is embedded inside the word: '%s'\n", target_word, embedded_word_buffer);
                         printf("PROMPT : Do you want to replace this occurrence? [y/n]: ");
+
+                        free(embedded_word_buffer);
                         
                         char *user_response = read_dynamic_input(NULL);
                         int accept_partial = 0;
@@ -320,8 +326,7 @@ static char *perform_single_replacement(char *file_buffer, size_t current_size, 
         }
         else
         {
-                long total_reduction = confirmed_occurrences * (target_length - replacement_length);
-                new_file_size = (long)current_size - total_reduction;
+                new_file_size = (long)current_size;
         }
 
         if (new_file_size < 0 || (uintmax_t)new_file_size > (uintmax_t)SIZE_MAX - 1)
