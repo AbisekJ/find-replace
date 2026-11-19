@@ -147,8 +147,8 @@ int find_replace(const char *file_name,
 
                 file_buffer = resized_buffer;
 		
-		strncpy(file_buffer + total_growth, file_buffer, bytes_read + 1);
-                //memmove(file_buffer + total_growth, file_buffer, bytes_read + 1);
+		//strncpy(file_buffer + total_growth, file_buffer, bytes_read + 1);
+                memmove(file_buffer + total_growth, file_buffer, bytes_read + 1);
 
                 printf("STATUS : Original content shifted once\n");
         }
@@ -176,13 +176,14 @@ int find_replace(const char *file_name,
                 size_t block_length = (size_t)(match_pointer - read_pointer);
                 char *next_read_pointer = (char *)match_pointer + target_length;
 
-                //memmove(write_pointer, read_pointer, block_length);
-		strncpy(write_pointer, read_pointer, block_length);
+                memmove(write_pointer, read_pointer, block_length);
+		//strncpy(write_pointer, read_pointer, block_length);
 		
                 write_pointer += block_length;
 
-                strncpy(write_pointer, replacement_word, replacement_length);
-
+                //strncpy(write_pointer, replacement_word, replacement_length);
+		memmove(write_pointer, replacement_word, replacement_length);
+		
                 write_pointer += replacement_length;
                 
                 read_pointer = next_read_pointer;
@@ -190,8 +191,8 @@ int find_replace(const char *file_name,
 
         size_t remaining_length = strlen(read_pointer) + 1;
 
-        //memmove(write_pointer, read_pointer, remaining_length);
-	strncpy(write_pointer, read_pointer, remaining_length);
+        memmove(write_pointer, read_pointer, remaining_length);
+	//strncpy(write_pointer, read_pointer, remaining_length);
 	
         printf("STATUS : All occurrences replaced successfully\n");
 
