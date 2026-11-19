@@ -126,7 +126,7 @@ int find_replace(const char *file_name, const char *target_word, const char *rep
         }
         else
         {
-                size_t length_difference = target_length - replacement_length;
+                //size_t length_difference = target_length - replacement_length;
 
                 //new_file_size = bytes_read - (occurrence_count * length_difference);
                 new_file_size = bytes_read;
