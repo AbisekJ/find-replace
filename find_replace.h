@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #define SUCCESS_STATUS                  0
 #define ERROR_STATUS                    1
