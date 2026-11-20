@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O2
 TARGET = find_replace
 
-SRC = main.c find_replace.c
+SRC = main.c find_replace.c utility.c
 OBJ = $(SRC:.c=.o)
 
 all: $(TARGET)
@@ -10,7 +10,7 @@ all: $(TARGET)
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^
 
-%.o: %.c find_replace.h
+%.o: %.c find_replace.h utility.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
